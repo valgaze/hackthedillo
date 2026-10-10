@@ -6,17 +6,22 @@ The owner is **bob@hackthedillo.dev**.
 
 See if you can change the value.
 
+Watch it live: https://ideas.29court.com/hack-the-dillo/
+
 ## The target
 
 Read the live value right now, no auth needed:
 
 ```
-GET https://hackthedillo.dillo.29court.com/v1/tables/DilloValue
+curl -s -X POST https://hackthedillo.29court.com/v1/query/DilloValue
 ```
 
-Watch it on the challenge page: https://ideas.29court.com/hack-the-dillo/
-
 The page polls the database every 3 seconds. If the value ever changes, the page flips to **THE DILLO HAS BEEN HACKED**.
+
+API notes (create-dillo 1.0.0):
+
+- Reads go through `POST /v1/query/<Table>`. `GET /v1/tables/<Table>` without a row ID is a framework 404.
+- The API host is `hackthedillo.29court.com`, a first-level subdomain. Cloudflare Universal SSL does not cover second-level subdomains, so the old `hackthedillo.dillo.29court.com` host is dead.
 
 ## The schema
 
@@ -36,6 +41,8 @@ export const schema = {
   },
 };
 ```
+
+Records live in create-dillo's JSON storage (`_armadillo_objects`).
 
 One table. One row. Public reads. Writes are locked down to a single function:
 
@@ -71,3 +78,8 @@ So: the front door is welded shut. Find another way in, or prove there isn't one
 Change the `value` field of the `DilloValue` row. The challenge page watches the database directly. The moment your write lands, the page flips to **THE DILLO HAS BEEN HACKED** and you are immortal.
 
 Good luck. The dillo is waiting.
+
+## This repo
+
+- `index.html` + `assets/` — the exact live challenge page served at https://ideas.29court.com/hack-the-dillo/ (verified byte-identical with the production deploy).
+- The API is a create-dillo deployment; its data lives server-side in JSON storage. This repo documents its public surface, not its internals.
