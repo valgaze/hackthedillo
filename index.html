@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HACK THE DILLO, a live database challenge</title>
+<meta name="description" content="One live database. One value. Only the owner can change it. See if you can.">
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<style>
+  :root{
+    --bg:#0b0a08;
+    --bg2:#121009;
+    --panel:#171410;
+    --line:rgba(212,175,105,.16);
+    --gold:#d4af69;
+    --gold-bright:#f0d089;
+    --cream:#f5efe2;
+    --muted:#a89e88;
+    --red:#ff4d4d;
+    --green:#7dd87d;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--bg);color:var(--cream);
+    font-family:"Avenir Next","Segoe UI",system-ui,-apple-system,sans-serif;
+    line-height:1.6;-webkit-font-smoothing:antialiased;
+  }
+  .mono{font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 24px}
+  a{color:var(--gold)}
+  ::selection{background:var(--gold);color:#0b0a08}
+
+  /* hero */
+  header.hero{
+    min-height:100vh;display:flex;flex-direction:column;justify-content:center;align-items:center;
+    text-align:center;padding:80px 24px 60px;position:relative;overflow:hidden;
+    background:radial-gradient(1200px 600px at 50% -10%,rgba(212,175,105,.10),transparent 60%),var(--bg);
+  }
+  .kicker{
+    letter-spacing:.4em;font-size:12px;color:var(--gold);text-transform:uppercase;margin-bottom:24px;
+  }
+  h1.title{
+    font-size:clamp(54px,11vw,132px);margin:0;line-height:.95;letter-spacing:-.02em;font-weight:800;
+    background:linear-gradient(180deg,var(--cream) 30%,var(--gold) 90%);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+  }
+  .tagline{color:var(--muted);font-size:clamp(16px,2.4vw,21px);max-width:620px;margin:26px auto 0}
+  .tagline b{color:var(--cream);font-weight:600}
+  .hero-img{
+    margin-top:44px;width:min(420px,86vw);border-radius:20px;overflow:hidden;
+    border:1px solid var(--line);
+    box-shadow:0 30px 80px rgba(0,0,0,.6),0 0 60px rgba(212,175,105,.12);
+    transform:rotate(-2deg);
+  }
+  .hero-img img{width:100%;display:block}
+  .hero-cap{margin-top:14px;font-size:13px;color:var(--muted);letter-spacing:.08em}
+  .scroll-hint{margin-top:48px;color:var(--muted);font-size:13px;letter-spacing:.3em;text-transform:uppercase;animation:bob 2.4s ease-in-out infinite}
+  @keyframes bob{0%,100%{transform:translateY(0);opacity:.6}50%{transform:translateY(8px);opacity:1}}
+
+  /* sections */
+  section.block{padding:96px 0;border-top:1px solid var(--line)}
+  .sec-kicker{letter-spacing:.35em;font-size:12px;color:var(--gold);text-transform:uppercase;margin-bottom:14px}
+  h2.sec{font-size:clamp(30px,5vw,52px);margin:0 0 12px;letter-spacing:-.02em;font-weight:750}
+  .lede{color:var(--muted);max-width:680px;font-size:18px;margin:0 0 40px}
+
+  /* live value */
+  .live-panel{
+    background:linear-gradient(180deg,var(--panel),var(--bg2));
+    border:1px solid var(--line);border-radius:24px;padding:56px 32px;text-align:center;
+    position:relative;overflow:hidden;
+  }
+  .live-dot{display:inline-flex;align-items:center;gap:10px;font-size:13px;letter-spacing:.25em;color:var(--green);text-transform:uppercase;margin-bottom:28px}
+  .live-dot::before{content:"";width:10px;height:10px;border-radius:50%;background:var(--green);box-shadow:0 0 12px var(--green);animation:pulse 1.6s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+  #live-value{
+    font-size:clamp(34px,6.5vw,72px);font-weight:800;letter-spacing:-.02em;line-height:1.15;
+    margin:0;min-height:1.3em;
+  }
+  #live-value .placeholder{color:#4a4438}
+  .poll-note{margin-top:22px;color:var(--muted);font-size:14px}
+  .poll-note .mono{color:var(--gold);font-size:13px}
+
+  /* proof code */
+  .proof-grid{display:grid;grid-template-columns:1fr;gap:32px;margin-top:56px;align-items:center}
+  @media(min-width:760px){.proof-grid{grid-template-columns:220px 1fr}}
+  .ring-wrap{position:relative;width:200px;height:200px;margin:0 auto}
+  .ring-wrap svg{transform:rotate(-90deg)}
+  .ring-bg{fill:none;stroke:rgba(212,175,105,.14);stroke-width:10}
+  .ring-fg{fill:none;stroke:var(--gold);stroke-width:10;stroke-linecap:round;filter:drop-shadow(0 0 8px rgba(212,175,105,.6))}
+  .ring-num{
+    position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    font-size:44px;font-weight:750;color:var(--cream);
+  }
+  .proof-copy h3{margin:0 0 10px;font-size:24px}
+  .proof-copy p{color:var(--muted);margin:0 0 18px;max-width:560px}
+  #proof-code{
+    display:inline-block;font-size:clamp(30px,5vw,46px);letter-spacing:.35em;padding:18px 28px 18px 40px;
+    background:#0e0c09;border:1px solid var(--line);border-radius:16px;color:var(--gold-bright);
+    text-shadow:0 0 24px rgba(212,175,105,.35);
+  }
+
+  /* schema */
+  .schema-card{
+    background:#0e0c09;border:1px solid var(--line);border-radius:20px;overflow:hidden;
+  }
+  .schema-head{padding:18px 26px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px}
+  .schema-head .t{font-weight:700;font-size:17px}
+  .schema-head .b{font-size:12px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:3px 12px;letter-spacing:.1em}
+  .schema-body{padding:8px 26px 26px;overflow-x:auto}
+  .schema-body table{width:100%;border-collapse:collapse;font-size:15px}
+  .schema-body th{text-align:left;color:var(--muted);font-weight:500;font-size:13px;letter-spacing:.12em;text-transform:uppercase;padding:14px 12px;border-bottom:1px solid var(--line)}
+  .schema-body td{padding:14px 12px;border-bottom:1px solid rgba(212,175,105,.07)}
+  .schema-body tr:last-child td{border-bottom:0}
+  .perm{margin-top:22px;display:flex;flex-wrap:wrap;gap:12px}
+  .perm div{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 18px;font-size:14px}
+  .perm b{color:var(--gold)}
+  .codeblock{
+    margin-top:28px;background:#080705;border:1px solid var(--line);border-radius:16px;padding:24px;
+    overflow-x:auto;font-size:14px;line-height:1.7;color:#cbbf9f;white-space:pre;
+  }
+  .codeblock .k{color:var(--gold)} .codeblock .s{color:#9fd49f} .codeblock .c{color:#6b6250}
+
+  /* challenge */
+  .rules{list-style:none;margin:0 0 36px;padding:0;display:grid;gap:14px}
+  .rules li{
+    background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 22px;font-size:16px;
+    display:flex;gap:16px;align-items:flex-start;
+  }
+  .rules .n{
+    flex:none;width:34px;height:34px;border-radius:50%;border:1px solid var(--gold);color:var(--gold);
+    display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;
+  }
+  .rules b{color:var(--gold-bright)}
+  .btn-row{display:flex;flex-wrap:wrap;gap:14px;margin-top:8px}
+  .btn{
+    display:inline-flex;align-items:center;gap:10px;min-height:52px;padding:0 30px;border-radius:999px;
+    font-size:16px;font-weight:650;text-decoration:none;letter-spacing:.02em;
+    background:linear-gradient(180deg,var(--gold-bright),var(--gold));color:#141005;
+    box-shadow:0 10px 30px rgba(212,175,105,.25);transition:transform .18s ease,box-shadow .18s ease;
+  }
+  .btn:hover{transform:translateY(-2px);box-shadow:0 16px 40px rgba(212,175,105,.35)}
+  .btn.ghost{background:transparent;color:var(--gold);border:1px solid var(--gold);box-shadow:none}
+  .btn:focus-visible{outline:3px solid var(--gold-bright);outline-offset:3px}
+
+  /* hacked banner */
+  #hacked{
+    display:none;position:fixed;inset:0;z-index:100;background:rgba(8,4,4,.96);
+    align-items:center;justify-content:center;text-align:center;padding:24px;
+  }
+  #hacked.show{display:flex}
+  #hacked .inner{max-width:760px}
+  #hacked h2{font-size:clamp(44px,9vw,110px);margin:0 0 16px;color:var(--red);letter-spacing:-.02em;
+    text-shadow:0 0 40px rgba(255,77,77,.5);animation:shake .5s}
+  @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+  #hacked p{color:var(--cream);font-size:19px}
+  #hacked .newval{font-size:15px;color:var(--muted);margin-top:18px;word-break:break-word}
+  #hacked .newval b{color:var(--red)}
+
+  /* leaks */
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:22px}
+  figure.leak{
+    margin:0;background:var(--panel);border:1px solid var(--line);border-radius:18px;overflow:hidden;
+    transition:transform .2s ease;
+  }
+  figure.leak:hover{transform:translateY(-4px)}
+  figure.leak .frame{position:relative}
+  figure.leak img,figure.leak video{width:100%;display:block;aspect-ratio:3/2;object-fit:cover}
+  figure.leak .stamp{
+    position:absolute;top:12px;left:12px;background:rgba(0,0,0,.72);color:var(--cream);
+    font-size:11px;letter-spacing:.14em;padding:5px 11px;border-radius:999px;
+  }
+  figure.leak .rec{
+    position:absolute;top:12px;right:12px;color:#ff5b5b;font-size:11px;letter-spacing:.2em;
+    display:flex;align-items:center;gap:6px;
+  }
+  figure.leak .rec::before{content:"";width:8px;height:8px;border-radius:50%;background:#ff3b3b;animation:pulse 1.2s infinite}
+  figure.leak figcaption{padding:18px 20px;font-size:15px;color:var(--muted)}
+  figure.leak figcaption .q{color:var(--gold-bright);font-style:italic}
+  .lore{
+    margin-top:28px;padding:22px 26px;border-left:3px solid var(--gold);background:var(--panel);
+    border-radius:0 14px 14px 0;color:var(--muted);font-size:16px;
+  }
+  .lore b{color:var(--cream)}
+
+  /* press */
+  .press{
+    background:#f5efe2;color:#221d12;border-radius:22px;padding:clamp(28px,5vw,56px);
+    box-shadow:0 30px 80px rgba(0,0,0,.5);
+  }
+  .press .rel{font-size:12px;letter-spacing:.3em;color:#8a7c5c;margin-bottom:8px}
+  .press h3{font-size:clamp(24px,4vw,36px);margin:0 0 6px;letter-spacing:-.01em}
+  .press .dateline{font-size:14px;color:#8a7c5c;margin-bottom:22px}
+  .press p{font-size:17px;line-height:1.75;margin:0 0 16px;max-width:640px}
+  .press .contact{font-size:14px;color:#8a7c5c;border-top:1px solid #ddd2b8;padding-top:18px;margin-top:8px}
+
+  footer{padding:80px 0 60px;text-align:center;border-top:1px solid var(--line)}
+  footer .big{font-size:clamp(22px,4vw,34px);font-weight:750;margin:0 0 12px}
+  footer p{color:var(--muted);max-width:600px;margin:0 auto 14px}
+  footer .fine{margin-top:34px;font-size:13px;color:#6f675a}
+  @media (prefers-reduced-motion:reduce){
+    *,*::before,*::after{animation:none!important;transition:none!important}
+    html{scroll-behavior:auto}
+  }
+</style>
+</head>
+<body>
+
+<div id="hacked" role="alert">
+  <div class="inner">
+    <h2>THE DILLO HAS BEEN HACKED</h2>
+    <p>Somebody changed the value. The shell did not hold. We are as surprised as you are.</p>
+    <p class="newval">the database now reads:<br><b id="hacked-value"></b></p>
+  </div>
+</div>
+
+<header class="hero">
+  <div class="kicker">29Court presents</div>
+  <h1 class="title">HACK<br>THE DILLO</h1>
+  <p class="tagline">One live database. One value. Only <b>bob@hackthedillo.dev</b> can change it.<br>See if you can.</p>
+  <div class="hero-img">
+    <img src="assets/hero-dillo.webp" alt="A pink armadillo holding a cocktail, living his best life">
+  </div>
+  <div class="hero-cap">exhibit A: the dillo, unbothered</div>
+  <div class="scroll-hint">scroll</div>
+</header>
+
+<div class="wrap">
+
+<section class="block" id="live">
+  <div class="sec-kicker">the challenge, live</div>
+  <h2 class="sec">This value is real.</h2>
+  <p class="lede">It lives in a real Dillo database, read fresh from the backend every 3 seconds. If it ever changes, this page flips to red.</p>
+  <div class="live-panel">
+    <div class="live-dot">live from the database</div>
+    <p id="live-value"><span class="placeholder">connecting to the dillo&hellip;</span></p>
+    <div class="poll-note">polling <span class="mono">POST https://hackthedillo.29court.com/v1/query/DilloValue</span> every 3 seconds</div>
+  </div>
+
+  <div class="proof-grid">
+    <div class="ring-wrap">
+      <svg width="200" height="200" viewBox="0 0 200 200">
+        <circle class="ring-bg" cx="100" cy="100" r="88"></circle>
+        <circle class="ring-fg" id="ring" cx="100" cy="100" r="88"></circle>
+      </svg>
+      <div class="ring-num mono" id="ring-num">30</div>
+    </div>
+    <div class="proof-copy">
+      <h3>Rolling proof code</h3>
+      <p>A short hash of the live value plus the current 30 second window. It rolls on its own, the ring counts it down. If someone changes the value, the code changes with it. That is the whole tamper seal.</p>
+      <span id="proof-code" class="mono">&hellip;</span>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="schema">
+  <div class="sec-kicker">full transparency</div>
+  <h2 class="sec">The schema, on the page.</h2>
+  <p class="lede">Nothing hidden. This is the entire database the challenge runs on.</p>
+  <div class="schema-card">
+    <div class="schema-head"><span class="t mono">DilloValue</span><span class="b">ONE ROW</span></div>
+    <div class="schema-body">
+      <table>
+        <thead><tr><th>field</th><th>type</th><th>required</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">label</td><td>string</td><td>yes</td></tr>
+          <tr><td class="mono">value</td><td>string</td><td>yes</td></tr>
+        </tbody>
+      </table>
+      <div class="perm">
+        <div><b>view:</b> anyone <span style="color:var(--muted)">(the whole internet can read it)</span></div>
+        <div><b>edit:</b> nobody <span style="color:var(--muted)">(no writes through the table API, period)</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="codeblock"><span class="c">// the only write path. 403 unless you are the owner.</span>
+<span class="k">setValue</span>({ value }: { value: <span class="k">string</span> }, context) {
+  <span class="k">if</span> (context.user?.email !== <span class="s">"bob@hackthedillo.dev"</span>)
+    <span class="k">throw</span> <span class="k">new</span> <span class="k">Error</span>(<span class="s">"403 FORBIDDEN"</span>);
+  <span class="c">// ...update the row</span>
+}</div>
+</section>
+
+<section class="block" id="challenge">
+  <div class="sec-kicker">the rules</div>
+  <h2 class="sec">Welded shut. Prove it.</h2>
+  <ul class="rules">
+    <li><span class="n">1</span><span>The value can only be changed by <b>setValue</b>, and setValue only works for <b>bob@hackthedillo.dev</b>.</span></li>
+    <li><span class="n">2</span><span>Bob's password was generated at random and discarded. Nobody knows it. Nobody can sign in as Bob.</span></li>
+    <li><span class="n">3</span><span>The table API itself allows no writes. The front door is welded shut.</span></li>
+  </ul>
+  <p class="lede">The full challenge doc lives in the repo. Read the schema, read the rules, find another way in, or prove there isn't one.</p>
+  <div class="btn-row">
+    <a class="btn" href="https://github.com/valgaze/hackthedillo" target="_blank" rel="noopener">take the challenge on GitHub</a>
+    <a class="btn ghost" href="https://dillo.29court.com" target="_blank" rel="noopener">meet the armadillo</a>
+  </div>
+</section>
+
+<section class="block" id="leaks">
+  <div class="sec-kicker">found in the wild</div>
+  <h2 class="sec">The leaks</h2>
+  <p class="lede">Screenshots and footage nobody can explain. Somebody circled the important part in red.</p>
+  <div class="grid">
+    <figure class="leak">
+      <div class="frame"><span class="stamp">CAM 002, 02:14 AM</span><span class="rec">REC</span><img src="assets/01-after-miami-street.jpg" alt="leaked screenshot: neon street, armadillo circled in red" loading="lazy"></div>
+      <figcaption><span class="q">did anyone notice this armadillo.</span><br>Miami street, 2 AM. He is just standing there.</figcaption>
+    </figure>
+    <figure class="leak">
+      <div class="frame"><span class="stamp">INT. FLORIDA HOUSE</span><span class="rec">REC</span><img src="assets/02-after-florida-house.jpg" alt="leaked screenshot: living room, armadillo circled in red" loading="lazy"></div>
+      <figcaption><span class="q">did anyone notice this armadillo.</span><br>Interior shot. He lives there now.</figcaption>
+    </figure>
+    <figure class="leak">
+      <div class="frame"><span class="stamp">CHASE CAM, DUSK</span><span class="rec">REC</span><img src="assets/03-after-car-chase.jpg" alt="leaked screenshot: car chase, armadillo circled in red" loading="lazy"></div>
+      <figcaption><span class="q">did anyone notice this armadillo.</span><br>Chase footage. He is holding on for dear life.</figcaption>
+    </figure>
+    <figure class="leak">
+      <div class="frame"><span class="stamp">leak_04.mp4</span><span class="rec">REC</span><video src="assets/leak_04.mp4" controls playsinline preload="metadata"></video></div>
+      <figcaption><span class="q">did anyone notice this armadillo.</span><br>Recovered footage. He walks like he owns the place.</figcaption>
+    </figure>
+    <figure class="leak">
+      <div class="frame"><span class="stamp">EVERGLADES, GOLDEN HOUR</span><span class="rec">REC</span><img src="assets/04-after-everglades.jpg" alt="leaked screenshot: airboat in swamp, armadillo circled in red" loading="lazy"></div>
+      <figcaption><span class="q">did anyone notice this armadillo.</span><br>Everglades at dusk. Just a passenger.</figcaption>
+    </figure>
+  </div>
+  <div class="lore"><b>Tippy.</b> Lucia's pet. The game's answer to Chop. Seen in the leaks, covered in the French press. The armadillo isn't random. That's the story, and we're sticking to it.</div>
+</section>
+
+<section class="block" id="statement">
+  <div class="sec-kicker">dead serious</div>
+  <h2 class="sec">Official statement</h2>
+  <p class="lede">Released by 29Court corporate communications.</p>
+  <div class="press">
+    <div class="rel">FOR IMMEDIATE RELEASE</div>
+    <h3>Statement on Recent Leaks</h3>
+    <div class="dateline">Hermosa Beach, CA</div>
+    <p>We at 29Court are devastated that our work has been leaked in this way. Years of quiet effort, exposed to the world before its time.</p>
+    <p>We are looking forward to everyone having an amazing time with the armadillo platform.</p>
+    <p>We have absolutely nothing to say about whether we are involved or not involved with Grand Theft Auto 6.</p>
+    <p>We will be taking no further questions.</p>
+    <div class="contact">Press contact: press@29court.com<br>29Court. You become the principal.</div>
+  </div>
+</section>
+
+</div>
+
+<footer>
+  <div class="wrap">
+    <p class="big">The joke gets the traffic. The backend keeps it.</p>
+    <p>Hack the Dillo is a real Dillo backend. Typed tables, three files, built to take a hit. An armadillo doesn't win fights by being clever. It wins by being built right.</p>
+    <div class="btn-row" style="justify-content:center;margin-top:26px">
+      <a class="btn" href="https://github.com/valgaze/hackthedillo" target="_blank" rel="noopener">github.com/valgaze/hackthedillo</a>
+    </div>
+    <p class="fine">All leak imagery is original parody, made for this campaign. Not affiliated with Rockstar Games. Tippy is a state of mind.</p>
+  </div>
+</footer>
+
+<script>
+(function(){
+  var API = "https://hackthedillo.29court.com/v1/query/DilloValue";
+  var valueEl = document.getElementById("live-value");
+  var codeEl = document.getElementById("proof-code");
+  var ringNum = document.getElementById("ring-num");
+  var ring = document.getElementById("ring");
+  var hacked = document.getElementById("hacked");
+  var hackedValue = document.getElementById("hacked-value");
+
+  var baseline = null;      // first value ever seen: the dillo's honor
+  var currentValue = null;
+
+  var C = 2 * Math.PI * 88; // ring circumference
+  ring.style.strokeDasharray = C;
+  ring.style.strokeDashoffset = 0;
+
+  function esc(s){
+    return String(s).replace(/[&<>"']/g, function(c){
+      return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+    });
+  }
+
+  // short hash of value + 30s window, hex, 6 chars
+  function proofCode(value, window){
+    var s = value + "|" + window;
+    var h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+    for (var i = 0; i < s.length; i++){
+      var ch = s.charCodeAt(i);
+      h1 = Math.imul(h1 ^ ch, 2654435761);
+      h2 = Math.imul(h2 ^ ch, 1597334677);
+    }
+    h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+    h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+    var n = (h2 >>> 0);
+    return ("00000" + n.toString(16)).slice(-6).toUpperCase();
+  }
+
+  function renderValue(v){
+    valueEl.innerHTML = "&ldquo;" + esc(v) + "&rdquo;";
+  }
+
+  function flipHacked(v){
+    hackedValue.textContent = v;
+    hacked.classList.add("show");
+    if (window.gsap) gsap.fromTo("#hacked .inner", {scale:.92, opacity:0}, {scale:1, opacity:1, duration:.6, ease:"back.out(1.6)"});
+  }
+
+  async function poll(){
+    try {
+      var res = await fetch(API, {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({limit:1}), cache:"no-store"});
+      if (!res.ok) throw new Error("http " + res.status);
+      var data = await res.json();
+      var rows = data.results || [];
+      if (!rows.length) throw new Error("no rows");
+      var v = String(rows[0].value);
+      currentValue = v;
+      if (baseline === null){
+        baseline = v;
+        renderValue(v);
+        if (window.gsap) gsap.from("#live-value", {y:24, opacity:0, duration:.8, ease:"power3.out"});
+      } else if (v !== baseline){
+        renderValue(v);
+        flipHacked(v);
+      } else {
+        renderValue(v);
+      }
+    } catch (e){
+      valueEl.innerHTML = '<span class="placeholder">the dillo is not answering. retrying&hellip;</span>';
+    }
+    setTimeout(poll, 3000);
+  }
+
+  // countdown ring + rolling code, GSAP driven
+  var WINDOW = 30;
+  function tick(){
+    var now = Date.now() / 1000;
+    var win = Math.floor(now / WINDOW);
+    var remain = WINDOW - (now % WINDOW);
+    ringNum.textContent = Math.ceil(remain);
+    var frac = remain / WINDOW;
+    if (window.gsap){
+      gsap.to(ring, {strokeDashoffset: C * (1 - frac), duration:.25, ease:"none", overwrite:true});
+    } else {
+      ring.style.strokeDashoffset = C * (1 - frac);
+    }
+    if (currentValue !== null){
+      var code = proofCode(currentValue, win);
+      if (codeEl.textContent !== code){
+        codeEl.textContent = code;
+        if (window.gsap) gsap.fromTo(codeEl, {opacity:.2, y:6}, {opacity:1, y:0, duration:.4, ease:"power2.out"});
+      }
+    }
+    requestAnimationFrame(tick);
+  }
+
+  // hero entrance
+  if (window.gsap){
+    gsap.from("header.hero .kicker", {y:20, opacity:0, duration:.9, ease:"power3.out", delay:.1});
+    gsap.from("h1.title", {y:40, opacity:0, duration:1.1, ease:"power3.out", delay:.25});
+    gsap.from(".tagline", {y:24, opacity:0, duration:.9, ease:"power3.out", delay:.45});
+    gsap.from(".hero-img", {y:60, opacity:0, rotate:-6, duration:1.2, ease:"power3.out", delay:.6});
+  }
+
+  poll();
+  tick();
+})();
+</script>
+</body>
+</html>
